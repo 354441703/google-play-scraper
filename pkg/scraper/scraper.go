@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -23,6 +24,7 @@ type Options struct {
 	PriceMax float64
 	ScoreMin float64
 	ScoreMax float64
+	Proxy    string // HTTP/HTTPS proxy URL (e.g. http://proxy-host:port)
 }
 
 // Scraper instance
@@ -30,6 +32,7 @@ type Scraper struct {
 	options *Options
 	Results Results
 	url     string
+	client  *http.Client
 }
 
 func (scraper *Scraper) initialRequest() ([]app.App, string, error) {
@@ -42,7 +45,8 @@ func (scraper *Scraper) initialRequest() ([]app.App, string, error) {
 	q.Add("hl", scraper.options.Language)
 	req.URL.RawQuery = q.Encode()
 
-	data, err := util.GetInitData(req)
+	// Use the scraper's client which may have proxy configured
+	data, err := util.GetInitDataWithClient(req, scraper.client)
 	if err != nil {
 		return nil, "", err
 	}
@@ -64,7 +68,7 @@ func (scraper *Scraper) initialRequest() ([]app.App, string, error) {
 func (scraper *Scraper) batchexecute(token string) ([]app.App, string, error) {
 	payload := strings.Replace("f.req=%5B%5B%5B%22qnKhOb%22%2C%22%5B%5Bnull%2C%5B%5B10%2C%5B10%2C50%5D%5D%2Ctrue%2Cnull%2C%5B96%2C27%2C4%2C8%2C57%2C30%2C110%2C79%2C11%2C16%2C49%2C1%2C3%2C9%2C12%2C104%2C55%2C56%2C51%2C10%2C34%2C77%5D%5D%2Cnull%2C%5C%22{{token}}%5C%22%5D%5D%22%2Cnull%2C%22generic%22%5D%5D%5D", "{{token}}", token, 1)
 
-	js, err := util.BatchExecute(scraper.options.Country, scraper.options.Language, payload)
+	js, err := util.BatchExecuteWithClient(scraper.options.Country, scraper.options.Language, payload, scraper.client)
 	if err != nil {
 		return nil, "", err
 	}
@@ -188,14 +192,25 @@ func (scraper *Scraper) ParseResult(data string, paths ...string) {
 }
 
 // New return new Scraper instance
-func New(url string, options *Options) *Scraper {
+func New(targetURL string, options *Options) *Scraper {
 	scraper := &Scraper{
 		Results: Results{},
 		options: options,
-		url:     url,
+		url:     targetURL,
 	}
 	if scraper.options.Number == 0 {
 		scraper.options.Number = 50
 	}
+
+	// Setup HTTP client with proxy if configured
+	scraper.client = &http.Client{}
+	if options.Proxy != "" {
+		if proxyURL, err := url.Parse(options.Proxy); err == nil {
+			scraper.client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
+
 	return scraper
 }

@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	scriptRegex = regexp.MustCompile(`>AF_initDataCallback[\s\S]*?<\/script`)
+	scriptRegex = regexp.MustCompile(`>AF_initDataCallback[\s\S]*?<\/script>`)
 	keyRegex    = regexp.MustCompile(`(ds:\d*?)'`)
 	valueRegex  = regexp.MustCompile(`data:([\s\S]*?), sideChannel: {}}\);<\/`)
 )
@@ -35,6 +35,11 @@ func AbsoluteURL(base, path string) (string, error) {
 
 // BatchExecute for PlayStoreUi
 func BatchExecute(country, language, payload string) (string, error) {
+	return BatchExecuteWithClient(country, language, payload, nil)
+}
+
+// BatchExecuteWithClient for PlayStoreUi with custom HTTP client
+func BatchExecuteWithClient(country, language, payload string, client *http.Client) (string, error) {
 	url := "https://play.google.com/_/PlayStoreUi/data/batchexecute"
 
 	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
@@ -54,7 +59,7 @@ func BatchExecute(country, language, payload string) (string, error) {
 	q.Add("rpcids", "qnKhOb")
 	req.URL.RawQuery = q.Encode()
 
-	body, err := DoRequest(req)
+	body, err := DoRequestWithClient(req, client)
 	if err != nil {
 		return "", err
 	}
@@ -141,4 +146,34 @@ func GetInitData(req *http.Request) (map[string]string, error) {
 func HTMLToText(html string) string {
 	html2text.SetUnixLbr(true)
 	return html2text.HTML2Text(html)
+}
+
+// DoRequestWithClient performs HTTP request with custom client
+func DoRequestWithClient(req *http.Request, client *http.Client) ([]byte, error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request error: %s", resp.Status)
+	}
+
+	return ioutil.ReadAll(resp.Body)
+}
+
+// GetInitDataWithClient gets init data using custom HTTP client
+func GetInitDataWithClient(req *http.Request, client *http.Client) (map[string]string, error) {
+	html, err := DoRequestWithClient(req, client)
+	if err != nil {
+		return nil, err
+	}
+
+	return ExtractInitData(html), nil
 }
