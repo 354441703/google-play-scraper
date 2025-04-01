@@ -1,4 +1,4 @@
-module github.com/n0madic/google-play-scraper
+module github.com/354441703/google-play-scraper
 
 go 1.12
 
