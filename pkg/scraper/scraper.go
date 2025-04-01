@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/n0madic/google-play-scraper/internal/parse"
-	"github.com/n0madic/google-play-scraper/internal/util"
-	"github.com/n0madic/google-play-scraper/pkg/app"
+	"github.com/354441703/google-play-scraper/internal/parse"
+	"github.com/354441703/google-play-scraper/internal/util"
+	"github.com/354441703/google-play-scraper/pkg/app"
 )
 
 // BaseURL of Google Play Store
